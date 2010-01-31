@@ -4,6 +4,11 @@
  * www.drewwilson.com
  * code.drewwilson.com/entry/autosuggest-jquery-plugin
  *
+ * Copyright 2010 Felix Andersen
+ * http://github.com/nibbo/autoSuggest
+ * Added callbacks on removal and addition of suggestions and support for 
+ * suggestions selected on initialization 
+ *
  * Version 1.2   -   Updated: Jan. 05, 2010
  *
  * This Plug-In will auto-complete or auto-suggest completed search queries
@@ -35,7 +40,10 @@
 		  	selectionClick: function(elem){},
 		  	formatList: false, //callback function
 		  	retrieveComplete: function(data){ return data; },
-		  	resultsComplete: function(){}
+		  	resultsComplete: function(){},
+			selectedItems: false,
+			onAdd: function(value){},
+			onRemove: function(value){}
 	  	};  
 	 	var opts = $.extend(defaults, options);	 	
 		
@@ -117,6 +125,7 @@
 								if(org_li.prev().hasClass("selected")){
 									values_input.val(values_input.val().replace(last+",",""));
 									org_li.prev().remove();
+									opts.onRemove(value, opts);
 								} else {
 									org_li.prev().addClass("selected");
 								}
@@ -201,25 +210,11 @@
 							var formatted = $('<li class="as-result-item" id="as-result-item-'+num+'"></li>').click(function(){
 									var data = $(this).data("data");
 									var num = data.num;
-									if($("#as-selection-"+num, selections_holder).length <= 0){
-										var data = data.attributes;
-										input.val("").focus();
-										prev = "";
-										values_input.val(values_input.val()+data.value+",");
-										var item = $('<li class="as-selection-item" id="as-selection-'+num+'"></li>').click(function(){
-												opts.selectionClick.call(this, $(this));
-												selections_holder.children().removeClass("selected");
-												$(this).addClass("selected");
-											}).mousedown(function(){ input_focus = false; });
-										var close = $('<a class="as-close">&times;</a>').click(function(){
-												values_input.val(values_input.val().replace(data.value+",",""));
-												item.remove();
-												input.focus();
-												return false;
-											});
-										org_li.before(item.html(data[opts.selectedItem]).prepend(close));
-										results_holder.hide();
-									}
+									if (addItem(data.attributes[opts.selectedItem], data.attributes.value, num)) {
+										prev = '';	
+										opts.onAdd(data.attributes.value, opts);
+									};
+									
 								}).mousedown(function(){ input_focus = false; }).data("data",{attributes: data[num], num: num});
 							var this_data = $.extend({},data[num]);
 							if (!opts.matchCase){ 
@@ -269,7 +264,38 @@
 					}
 				}
 									
+				function addItem (name, value, num) {
+					if($("#as-selection-"+num, selections_holder).length <= 0){
+						input.val("").focus();
+						values_input.val(values_input.val()+value+",");
+						var item = $('<li class="as-selection-item" id="as-selection-'+num+'"></li>').click(function(){
+								opts.selectionClick.call(this, $(this));
+								selections_holder.children().removeClass("selected");
+								$(this).addClass("selected");
+							}).mousedown(function(){ input_focus = false; });
+						var close = $('<a class="as-close">&times;</a>').click(function(){
+								values_input.val(values_input.val().replace(value+",",""));
+								item.remove();
+								input.focus();
+								opts.onRemove(value, opts);
+								return false;
+							});
+						org_li.before(item.html(name).prepend(close));
+						results_holder.hide();
+						return true;
+					}
+				}
+				
+				//Select items that we want selected when initalized
+				for (var i=0; i < opts.selectedItems.length; i++) {
+					value = opts.selectedItems[i]
+					for (var y=0; y < data.length; y++) {
+						if (data[y].value == value) {
+							addItem(data[y].name, data[y].value, y);
+						};
+					};
+				};
 			});
 		}
 	}
-})(jQuery);  	
+})(jQuery);
